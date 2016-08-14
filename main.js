@@ -3,7 +3,9 @@
 // Check if access token exists
 // Assume credentials.json is fullpath but 2 directories up (we should be at the root of org folder)
 // Ability to call "node main.js init [params]" through cli
+	// u=username p=password i=test/login
 // Ability to call "node main.js createComponent [params]" through cli
+	// t=page/class/trigger/cls name=
 
 // node main.js /Users/gorejakz/Bluewolf/Tools/Force-Faster-Save/Test.page Test page
 // node main.js /Users/gorejakz/Bluewolf/Tools/Force-Faster-Save/TestApex.cls TestApex cls
