@@ -14,7 +14,7 @@ var args = system.args;
 validateArgs(args);
 
 function validateArgs(args){
-  if(args.length <= 5){
+  if(args.length <= 6){
     console.log('Error: please provide full file path, file Id, access token, and instance URL args');
     phantom.exit();
   }
@@ -24,6 +24,9 @@ var fullPath = args[1];
 var fileId = args[2];
 var accessToken = args[3];
 var instanceUrl = args[4];
+var executionStartTime = args[5];
+var objectQuerySaveTime = args[6]
+
 
 // var saveFile = 'TestApex.cls';
 
@@ -37,7 +40,7 @@ var instanceUrl = args[4];
 var goToUrl = instanceUrl + '/secur/frontdoor.jsp?sid=' + accessToken + '&retURL=' + fileId + '/e';
 var redirectUrl = instanceUrl + '/' + fileId + '/e';
 
-console.log(goToUrl);
+// console.log(goToUrl);
 
 var page = require('webpage').create();
 
@@ -54,25 +57,36 @@ page.onConsoleMessage = function(msg){
 };
 /* testing end*/
 
+var phantomJsStartTime = +new Date();
+var pageLoadedTime;
+var saveCodeTimeStart;
+var saveCodeFinishTime;
+
+console.log('Phantomjs startup time: ' + ((phantomJsStartTime - objectQuerySaveTime) / 1000) +'s\n');
+
 page.open(goToUrl, function(status){
   try{
     console.log('Open page status: ' + status + '\n');
-
     if(status !== 'success'){
-      exit();
+      exit(1);
     }
     /**
      *
      * FLOW CALLS
      *
      */
-    var startTime = getStartTime();
+      var startTime = getStartTime();
     waitForPageToLoad();
+      pageLoadedTime = +new Date();
+      console.log('Page load time: ' + ((pageLoadedTime - phantomJsStartTime) / 1000) + 's\n');
     saveCode();
+      saveCodeTimeStart = +new Date();
     waitForSaveToFinish();
+      saveCodeFinishTime = +new Date();
+      console.log('Quick save finished: ' + ((saveCodeFinishTime - saveCodeTimeStart) / 1000) + 's\n');
     getSaveResult();
     endTime(startTime);
-    exit();
+    exit(0);
      /**
       *
       * FLOW CALLS END
@@ -89,7 +103,7 @@ page.open(goToUrl, function(status){
 
     function endTime(startTime){
       console.log('Save took: ' + ((+new Date() - startTime) / 1000) + 'seconds\n');
-      console.log('Overall Time: ' + ((+new Date() - args[5]) / 1000) + 'seconds\n');
+      console.log('Total execution time: ' + ((+new Date() - executionStartTime) / 1000) + 'seconds\n');
     }
 
     function waitForPageToLoad(){
@@ -166,8 +180,8 @@ page.open(goToUrl, function(status){
     exit();
   }
 
-  function exit(){
-    console.log('Exiting :) or :( depending on what happened');
+  function exit(errorCode){
+    console.log( errorCode == 0 ? 'Exiting :)' : 'There was an error :(');
     phantom.exit();
   }
 });

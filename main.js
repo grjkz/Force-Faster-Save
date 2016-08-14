@@ -11,6 +11,20 @@
 // node main.js /Users/gorejakz/Bluewolf/Tools/Force-Faster-Save/TestApex.cls TestApex cls
 // node main.js /Users/gorejakz/Bluewolf/Tools/Force-Faster-Save/Test.trigger Test trigger
 
+/**
+ * FLOW
+ *
+ * Validate Args
+ *
+ * Check if we have an access token
+ * Attempt to log in with access token
+		* if failed, log in using credentials and save new token
+ * 
+ * Get the file Extension
+ * Check to see if we have the Id of the file cached somewhere (should be saved as FileName.extension => ID)
+ */
+
+
 var fs = require('fs');
 var jsforce = require('jsforce');
 var getTableExtension = require('./getTableExtension.js');
@@ -25,32 +39,39 @@ var handleSalesforceSave = require('./handleSalesforceSave.js');
  */
 var args = process.argv;
 
+// Validate incoming execution args
 var validatedArgs = validateAndExtractArgs(args);
-var tableNameToQuery = getTableExtension(validatedArgs.fileExtension);
 var componentFileName = validatedArgs.fileName;
+// Get the object type from the file extension
+var tableNameToQuery = getTableExtension(validatedArgs.fileExtension);
 
+var startTime = +new Date();
+var loginTime;
+var queryTime;
 /**
  * Query Salesforce to get Component ID
  */
-var startTime = +new Date();
-var conn = new jsforce.Connection({loginUrl: loginCredentials.loginUrl});
-
 var loginCredentials = require('./credentials.json');
+var conn = new jsforce.Connection({loginUrl: loginCredentials.loginUrl});
 
 conn.login(loginCredentials.username, loginCredentials.password)
 	.then((results) => {
-		console.log('Logged in');
+		loginTime = +new Date();
+		console.log('Logged in: ' + ((loginTime - startTime) / 1000) + 's');
+		// Query Salesforce to get the Id of the component
 		return conn.query("SELECT Id FROM "+tableNameToQuery+" WHERE Name = '"+componentFileName+"'");
 	})
 	.then((results) => {
-		console.log('Retrieved component Id!');
+		queryTime = +new Date();
+		console.log('Retrieved component Id! ' + ((queryTime - loginTime) / 1000) + 's');
 		
 		var object = {
 			fullPath: validatedArgs.fullPath,
 			fileId: results.records[0].Id,
 			accessToken: conn.accessToken,
 			instanceUrl: conn.instanceUrl,
-			startTime: startTime
+			startTime: startTime,
+			queryTime: queryTime
 		}
 
 		handleSalesforceSave(object);
