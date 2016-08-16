@@ -1,82 +1,85 @@
-// Connect Sublime Build with our tool
-// Create files to cache component ids
-// Check if access token exists
-// Assume credentials.json is fullpath but 2 directories up (we should be at the root of org folder)
-// Ability to call "node main.js init [params]" through cli
-	// u=username p=password i=test/login
-// Ability to call "node main.js createComponent [params]" through cli
-	// t=page/class/trigger/cls name=
-
-// node main.js /Users/gorejakz/Bluewolf/Tools/Force-Faster-Save/Test.page Test page
-// node main.js /Users/gorejakz/Bluewolf/Tools/Force-Faster-Save/TestApex.cls TestApex cls
-// node main.js /Users/gorejakz/Bluewolf/Tools/Force-Faster-Save/Test.trigger Test trigger
+#!/usr/bin/env node
 
 /**
- * FLOW
- *
- * Validate Args
- *
- * Check if we have an access token
- * Attempt to log in with access token
-		* if failed, log in using credentials and save new token
- * 
- * Get the file Extension
- * Check to see if we have the Id of the file cached somewhere (should be saved as FileName.extension => ID)
+ * Required modules
  */
-
-
 var fs = require('fs');
-var jsforce = require('jsforce');
 var getTableExtension = require('./getTableExtension.js');
 var validateAndExtractArgs = require('./validateAndExtractArgs.js');
-var handleSalesforceSave = require('./handleSalesforceSave.js');
+var extractFromFullPath = require('./extractFromFullPath');
+var executeUpdateSalesforceComponent = require('./executeUpdateSalesforceComponent.js');
+var readAndValidateLocalCredentials = require('./readAndValidateLocalCredentials.js');
+var sfdcQueryAndLogin = require('./sfdcQueryAndLogin.js');
+var Timer = require('./Timer');
+var logger = require('./logger');
+var UPDATE_SALESFORCE_COMPONENT_JS = 'updateSalesForceComponent.js';
 
 /**
- * Args:
- * Full Path
- * File Name
- * File Extension
+ * Global variables
  */
-var args = process.argv;
+var globalVariables = {
+  salesforceCredentials: {
+    loginUrl:'',
+    username: '',
+    password: '',
+    generated: {
+      accessToken: '',
+      instanceUrl: '',
+    }
+  },
+  saveFile: {
+    fullPath: '',
+    fileName: '',
+    fileNameWithExt: '',
+    fileExtension: ''
+  },
+  tableNameToQuery: '',
+  pathToCredentials: '',
+  pathToUpdateSalesforceComponent: '',
+  timer: new Timer()
+}
 
-// Validate incoming execution args
-var validatedArgs = validateAndExtractArgs(args);
-var componentFileName = validatedArgs.fileName;
-// Get the object type from the file extension
-var tableNameToQuery = getTableExtension(validatedArgs.fileExtension);
 
-var startTime = +new Date();
-var loginTime;
-var queryTime;
 /**
- * Query Salesforce to get Component ID
+ * Execute
  */
-var loginCredentials = require('./credentials.json');
-var conn = new jsforce.Connection({loginUrl: loginCredentials.loginUrl});
+// Validate and extract command line arguments, set relevant global variables
+var validatedArgs = validateAndExtractArgs(process.argv);
+globalVariables.saveFile.fullPath = validatedArgs.fullPathToSaveFile;
+globalVariables.fullPathToUpdateSalesforceComponent = 
+  validatedArgs.fullPathToForceFasterSave + '/' + UPDATE_SALESFORCE_COMPONENT_JS;
 
-conn.login(loginCredentials.username, loginCredentials.password)
-	.then((results) => {
-		loginTime = +new Date();
-		console.log('Logged in: ' + ((loginTime - startTime) / 1000) + 's');
-		// Query Salesforce to get the Id of the component
-		return conn.query("SELECT Id FROM "+tableNameToQuery+" WHERE Name = '"+componentFileName+"'");
-	})
-	.then((results) => {
-		queryTime = +new Date();
-		console.log('Retrieved component Id! ' + ((queryTime - loginTime) / 1000) + 's');
-		
-		var object = {
-			fullPath: validatedArgs.fullPath,
-			fileId: results.records[0].Id,
-			accessToken: conn.accessToken,
-			instanceUrl: conn.instanceUrl,
-			startTime: startTime,
-			queryTime: queryTime
-		}
+// Extract relevant variables from full path
+var paths = extractFromFullPath(globalVariables.saveFile.fullPath);
+globalVariables.pathToCredentials        = paths.pathToCredentials;
+globalVariables.saveFile.fileName        = paths.fileNameWithoutExtension;
+globalVariables.saveFile.fileNameWithExt = paths.fileNameWithExtension;
+globalVariables.saveFile.fileExtension   = paths.fileExtension;
 
-		handleSalesforceSave(object);
-	})
-	.catch((err) => {
-		console.log('** Error **');
-		console.log(err);
-	});
+// Print start message
+logger.logSaveStart(globalVariables.saveFile.fileNameWithExt, globalVariables.timer.getStartTimeFormated());
+
+// Determine sObject type based on extension, set relevant global variables
+var tableNameToQuery = getTableExtension(globalVariables.saveFile.fileExtension);
+globalVariables.tableNameToQuery = tableNameToQuery;
+
+// Validate and ensure local credentials.json exists
+var credentialsObj = readAndValidateLocalCredentials(globalVariables.pathToCredentials);
+globalVariables.salesforceCredentials.loginUrl = credentialsObj.loginUrl;
+globalVariables.salesforceCredentials.username = credentialsObj.username;
+globalVariables.salesforceCredentials.password = credentialsObj.password;
+if(credentialsObj.generated){
+  globalVariables.salesforceCredentials.generated.instanceUrl = credentialsObj.generated.instanceUrl;
+  globalVariables.salesforceCredentials.generated.accessToken = credentialsObj.generated.accessToken;
+}
+
+// Query component id and push update to Salesforce
+sfdcQueryAndLogin(
+  globalVariables.salesforceCredentials,
+  globalVariables.tableNameToQuery,
+  globalVariables.saveFile.fullPath,
+  globalVariables.saveFile.fileName,
+  globalVariables.timer,
+  globalVariables.fullPathToUpdateSalesforceComponent,
+  executeUpdateSalesforceComponent
+);

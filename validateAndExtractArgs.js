@@ -1,22 +1,24 @@
-/**
- * Arguments Expected to come in
- * Full Path
- * File Name
- * File Extention
- */
+var logger = require('./logger');
 
-var validateAndExtractArgs = function (args) {
-	
-	if(args.length <= 4) {
-    console.log('Error: Please provide full file path and file ID');
+/**
+ * Currently expected command line arguments
+ * 2 - Full Path
+ */
+var validateAndExtractArgs = function(args){
+	if(args.length <= 2){
+    logger.log('Error: Please provide full file path parameter');
 		process.exit();
 	}
 
-	return { 
-		fullPath: args[2], 
-		fileName: args[3], 
-		fileExtension: args[4] 
-	}
+  var fullPathToMainJs = args[1];
+  var fullPathToMainJsSplitByForwardSlashes = fullPathToMainJs.split('/');
+  fullPathToMainJsSplitByForwardSlashes.pop();
+  var fullPathToForceFasterSave = fullPathToMainJsSplitByForwardSlashes.join('/');
+
+  return{
+    fullPathToSaveFile: args[2],
+    fullPathToForceFasterSave
+  }
 }
 
 module.exports = validateAndExtractArgs;

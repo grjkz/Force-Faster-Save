@@ -1,3 +1,5 @@
+var logger = require('./logger');
+
 var getTableToQuery = function(extension){
   switch(extension){
     case 'cls':
@@ -11,7 +13,7 @@ var getTableToQuery = function(extension){
   }
 
   function unknownExtension(){
-    console.log('Error: extension not supported: ' + extension);
+    logger.log('Error: extension not supported: ' + extension);
     process.exit();
   }
 }
